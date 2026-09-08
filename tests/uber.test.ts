@@ -131,6 +131,51 @@ describe("receipt emails", () => {
     expect(receipts[0].date).toMatch(/^2026-06-14/);
   });
 
+  it("ignores the time above the header and finds the stops further down", () => {
+    // The layout of a real Uber receipt PDF, addresses changed. The header is a
+    // time and then a word - "11:28 PM" over "Tip" - which a stop pattern that
+    // only looks for "a time, then something" reads as the pickup.
+    const { receipts } = parseUberReceipts([
+      "Sep 5, 2026",
+      "11:28 PM",
+      "Tip",
+      "Thanks for tipping, Nathan",
+      "We hope you enjoyed your ride this evening.",
+      "Total $21.93",
+      "Trip fare $13.93",
+      "Booking Fee $1.91",
+      "Tip $4.00",
+      "Payments",
+      "Visa ••••9766 $17.93",
+      "9/6/26 10:29 AM",
+      "Trip details",
+      "UberXL",
+      "1.31 miles, 6 minutes",
+      "11:50 PM",
+      "1313 Shrimp Boat Ln, Mount Pleasant, SC",
+      "29464, US",
+      "11:56 PM",
+      "40 Calhoun St, Charleston, SC 29401-",
+      "1234, US",
+    ].join("\n"));
+
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]).toMatchObject({
+      // The total is the charge including the tip, which is what was paid.
+      amountCents: 2193,
+      from: "1313 Shrimp Boat Ln",
+      to: "40 Calhoun St",
+    });
+    expect(receipts[0].date).toMatch(/^2026-09-05/);
+  });
+
+  it("won't take a stop from a bare word under a time", () => {
+    const { receipts } = parseUberReceipts([
+      "Thanks for riding, Nathan", "11:28 PM", "Tip", "Total $9.00",
+    ].join("\n"));
+    expect(receipts[0]).toMatchObject({ amountCents: 900, from: "", to: "" });
+  });
+
   it("reads the two-column layout a pdf receipt comes back as", () => {
     // Exactly what src/ui/pdf.ts produces for an Uber receipt PDF: no pipe
     // between the time and the address, just the columns run together.

@@ -302,12 +302,8 @@ const TOTAL_START = /(?:^|\n)[^\n\S]*total[^\n$€£]*[$€£]/gi;
  * label and the figure in neighbouring table cells, which strip to two lines.
  */
 const TOTAL = /(?:^|\n)[^\n\S]*total[^\n$€£]*\n?[^\n\S]*[$€£]\s*([\d,]+(?:\.\d{2})?)/i;
-/**
- * "9:41 PM | 1455 Market St, San Francisco" - the stop rows on a receipt. The
- * separator is optional because a PDF has no pipe: the time and the address are
- * simply two columns, which come back as "9:41 PM 1455 Market St".
- */
-const STOP = /^\s*\d{1,2}:\d{2}\s*(?:[AP]\.?M\.?)?\s*(?:[|·-]\s*)?(.+?)\s*$/gim;
+/** A line that opens with a time, and whatever it has after it. */
+const STOP = /^(\d{1,2}:\d{2}\s*(?:[AP]\.?M\.?)?)\s*(?:([|·–—-])\s*)?(.*)$/i;
 const EMAIL_DATE = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\b|\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}\b|\b\d{4}-\d{2}-\d{2}\b/i;
 
 function parseReceiptEmails(raw: string): UberImport {
@@ -322,7 +318,7 @@ function parseReceiptEmails(raw: string): UberImport {
       skipped.push({ label: firstLine(chunk), reason: "couldn't find a total" });
       continue;
     }
-    const stops = [...chunk.matchAll(STOP)].map((match) => match[1].trim()).filter(Boolean);
+    const stops = findStops(chunk);
     const date = EMAIL_DATE.exec(chunk);
     receipts.push({
       uberId: null,
@@ -371,6 +367,54 @@ function decodeEntity(whole: string, body: string): string {
   if (hex) return String.fromCodePoint(parseInt(hex[1], 16));
   const decimal = /^#(\d+)$/.exec(body);
   return decimal ? String.fromCodePoint(Number(decimal[1])) : whole;
+}
+
+/**
+ * The stops on a receipt, in the order they were passed.
+ *
+ * Receipts write these three ways, so this works line by line rather than with
+ * one regex over the whole text:
+ *
+ *     9:41 PM | 1455 Market St, San Francisco    an email, with a separator
+ *     9:41 PM   1455 Market St, San Francisco    two columns of a PDF
+ *     9:41 PM                                    a PDF that stacks them, which
+ *     1455 Market St, San Francisco              is what Uber's own receipts do
+ *
+ * Only the first of those actually says "this is a stop". For the other two the
+ * address has to look like one, because plenty of lines on a receipt start with
+ * a time - the header above "Thanks for tipping" is a time and then the word
+ * "Tip", which is how a ride once got logged as "Tip -> 715 Ralston Ct".
+ */
+function findStops(chunk: string): string[] {
+  const lines = chunk.split("\n").map((line) => line.trim());
+  const stops: string[] = [];
+
+  lines.forEach((line, index) => {
+    const match = STOP.exec(line);
+    if (!match) return;
+    const [, , separator, rest] = match;
+    if (rest) {
+      if (separator || looksLikeAddress(rest)) stops.push(rest);
+      return;
+    }
+    // Nothing after the time, so the address is the line underneath - if what's
+    // underneath is an address at all.
+    const below = lines[index + 1] ?? "";
+    if (looksLikeAddress(below)) stops.push(below);
+  });
+
+  return stops;
+}
+
+/**
+ * Enough of an address to be worth trusting without a separator saying so.
+ * Uber writes them as "715 Ralston Ct, Mount Pleasant, SC", so a comma or a
+ * house number is the evidence; a bare word like "Tip" is not an address, and
+ * a line with money on it is a fare breakdown row.
+ */
+function looksLikeAddress(text: string): boolean {
+  if (!text || /[$€£]/.test(text)) return false;
+  return text.includes(",") || /^\d+\s+\S/.test(text);
 }
 
 /**
