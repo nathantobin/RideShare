@@ -30,10 +30,6 @@ export function isAutoDescribed(ride: Pick<Ride, "description" | "from" | "to">)
   return ride.description === autoDescription(ride.from, ride.to);
 }
 
-export function activeTrip(data: AppData): Trip | null {
-  return data.trips.find((trip) => trip.id === data.activeTripId) ?? null;
-}
-
 export function createTrip(data: AppData, name: string, copyPeopleFrom?: Trip | null): Trip {
   const trimmed = name.trim();
   if (!trimmed) throw new ValidationError("Give the trip a name.");
