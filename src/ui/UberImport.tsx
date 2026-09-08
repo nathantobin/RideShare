@@ -110,14 +110,11 @@ export function UberImport({ trip, onDone }: { trip: Trip; onDone: () => void })
         </p>
         <ol class="uber-how">
           <li>
-            <strong>One trip's worth:</strong> open each Uber receipt email, select all,
-            and paste below. Several at once is fine.
+            <strong>Upload as a PDF:</strong> Open the Uber app, go to your trip history, and export the receipts as a PDF. Then upload that PDF here. 
+            You can also open the PDF in your browser and paste below. Several at once is fine.
           </li>
           <li>
-            <strong>One trip's worth:</strong> Download each email from uber as a pdf, then upload them here.
-          </li>
-          <li>
-            <strong>Everything at once:</strong> ask Uber for your data at{" "}
+            <strong>Upload as a CSV:</strong> ask Uber for your data at{" "}
             <a href="https://myprivacy.uber.com/privacy/exploreyourdata/download" target="_blank" rel="noreferrer">
               Uber's privacy centre
             </a>{" "}
