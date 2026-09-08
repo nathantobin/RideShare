@@ -6,7 +6,7 @@ import { createTrip, deleteTrip, renameTrip } from "../core/trips";
 import type { Trip } from "../core/types";
 import { navigate } from "./App";
 import { downloadFile, readTextFile } from "./dom";
-import { commit, replaceData, showError, useAppData } from "./store";
+import { commit, mergeIntoData, showError, showNote, useAppData } from "./store";
 
 function statusOf(trip: Trip): string {
   if (trip.rides.length === 0) return "No rides yet";
@@ -24,6 +24,14 @@ function formatDate(iso: string): string {
 
 function count(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+
+/** What an import brought in, or that it brought nothing. */
+function describeMerge({ trips, rides }: { trips: number; rides: number }): string {
+  const added = [trips && count(trips, "trip"), rides && count(rides, "ride")].filter(Boolean);
+  return added.length === 0
+    ? "Nothing new in that file - you already had all of it."
+    : `Added ${added.join(" and ")}.`;
 }
 
 export function Dashboard({ trips }: { trips: Trip[] }) {
@@ -116,7 +124,7 @@ function DataBar() {
     const file = input.files?.[0];
     if (!file) return;
     try {
-      replaceData(parseImport(await readTextFile(file)));
+      showNote(describeMerge(mergeIntoData(parseImport(await readTextFile(file)))));
     } catch (problem) {
       showError(problem instanceof Error ? problem.message : "Couldn't import that file.");
     } finally {
@@ -126,24 +134,15 @@ function DataBar() {
 
   return (
     <div class="data-bar">
-      <span>Trips are saved in this browser only.</span>
+      <span>Saved in this browser. Importing merges another export into these.</span>
       <button
         class="ghost"
         onClick={() => downloadFile(`rideshare-${new Date().toISOString().slice(0, 10)}.json`, serialize(data))}
       >
         Export JSON
       </button>
-      <button
-        class="ghost"
-        onClick={() => {
-          if (data.trips.length > 0 && !window.confirm(
-            "Importing replaces the trips saved in this browser. Export first if you want a copy. Continue?",
-          )) return;
-          fileInput.current?.click();
-        }}
-      >
-        Import JSON
-      </button>
+      {/* No confirmation: merging only ever adds, so there's nothing to lose. */}
+      <button class="ghost" onClick={() => fileInput.current?.click()}>Import JSON</button>
       <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={importFile} />
     </div>
   );

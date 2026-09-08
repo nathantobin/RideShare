@@ -24,6 +24,8 @@ weekend, not fifteen.
   the car, and the person who paid doesn't have to be one of them.
 - **Cent-exact.** Fares that don't divide evenly hand the leftover pennies to the
   first riders, so shares always add up to the fare.
+- **Two phones, one trip.** Send someone your export and theirs merges into
+  yours: you both keep every ride you logged, and nobody's copy wins.
 
 ## Using it
 
@@ -37,6 +39,18 @@ Your trips are saved in your own browser and never leave your device. That also
 means they're tied to that browser, so use **Export JSON** to back a trip up or
 move it to your laptop, and **Import JSON** to load it there. `sample-trip.json`
 in this repo is a small example you can import to see how it looks.
+
+### Sharing a trip
+
+Importing doesn't replace what you have, it folds the file into it, which is
+enough for a group to share a trip without a server in the middle. Everyone logs
+their own rides; someone exports and sends the file round; each person imports
+it and ends up with the lot. Import the same file twice and the second time
+changes nothing.
+
+It isn't live — you get what was in the file when it was sent, not what the
+other phone is doing right now — but nothing is ever lost in the exchange, which
+is the part that would otherwise go wrong.
 
 ### Importing from Uber
 
@@ -101,6 +115,26 @@ in practice lands on the answer you'd work out by hand.
 For a split that isn't even — someone got out halfway — log it as two rides with
 different rider lists.
 
+## How merging works
+
+Every rider and ride carries when it was made and when it was last touched, and
+deleting one leaves a note of the deletion behind rather than removing every
+trace. That's what lets two copies be folded together:
+
+- Records are matched by id, so anything only one side has is kept.
+- Two copies of the same record: the later edit wins, whole. Nobody edits half a
+  ride, so there's nothing to gain from merging field by field.
+- A deletion beats an edit, however recent. Otherwise a phone that hadn't
+  synced yet would keep putting back the ride you deleted.
+- Unless the deletion has been overtaken: a rider you removed who turns up in
+  someone else's ride comes back, because a fare split among someone who isn't
+  on the trip doesn't add up.
+
+Merging is commutative — it doesn't matter who imports whose file, or in what
+order — which is what makes passing one file around a group safe. The clock is
+each phone's own, so two people editing the same ride in the same moment is
+resolved arbitrarily but identically on both, rather than by losing one.
+
 ## Project layout
 
 ```
@@ -109,6 +143,7 @@ src/core/     the math and the data model, no DOM in sight
   split.ts      dividing a fare among riders
   settle.ts     balances, and who pays whom
   trips.ts      trips, people, rides, validation
+  merge.ts      folding two copies of the data back together
   uber.ts       reading receipts, and turning them into rides
   storage.ts    saving, loading, import and export
 src/ui/       Preact components

@@ -38,7 +38,7 @@ describe("loadData", () => {
   });
 });
 
-describe("upgrading from version 3", () => {
+describe("upgrading older saves", () => {
   /** A trip saved before rides could come from an Uber receipt. */
   const v3 = JSON.stringify({
     version: 3,
@@ -49,22 +49,36 @@ describe("upgrading from version 3", () => {
       rides: [{ id: "r1", description: "Solo", from: "", to: "", amountCents: 1200, paidBy: "a", riders: ["a"] }],
     }],
   });
+  /** The same trip saved before any of it could be merged. */
+  const v4 = JSON.stringify({ ...JSON.parse(v3), version: 4 });
 
-  it("finds trips still under the old key, so an upgrade doesn't look like data loss", () => {
-    storage.setItem(LEGACY_KEYS[0], v3);
-    const loaded = loadData(storage);
-    expect(loaded.version).toBe(4);
-    expect(loaded.trips[0].rides).toHaveLength(1);
+  it("finds trips under either old key, so an upgrade isn't data loss", () => {
+    for (const [key, raw] of [["rideshare.data.v4", v4], ["rideshare.data.v3", v3]] as const) {
+      const from = new FakeStorage();
+      from.setItem(key, raw);
+      const loaded = loadData(from);
+      expect(loaded.version).toBe(5);
+      expect(loaded.trips[0].rides).toHaveLength(1);
+    }
+  });
+
+  it("stamps records that predate timestamps with the trip's own date", () => {
+    storage.setItem(LEGACY_KEYS[0], v4);
+    const trip = loadData(storage).trips[0];
+    expect(trip.rides[0].updatedAt).toBe("2026-06-01T00:00:00.000Z");
+    expect(trip.people[0].createdAt).toBe("2026-06-01T00:00:00.000Z");
+    expect(trip.tombstones).toEqual({});
   });
 
   it("prefers the current key once something has been saved to it", () => {
-    storage.setItem(LEGACY_KEYS[0], v3);
+    storage.setItem(LEGACY_KEYS[0], v4);
     saveData(storage, emptyData());
     expect(loadData(storage).trips).toEqual([]);
   });
 
-  it("still imports a version 3 export file", () => {
+  it("still imports an older export file", () => {
     expect(parseImport(v3).trips[0].name).toBe("Charleston");
+    expect(parseImport(v4).trips[0].name).toBe("Charleston");
   });
 });
 

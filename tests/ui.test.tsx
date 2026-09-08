@@ -2,7 +2,7 @@
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadData, saveData, type StorageLike } from "../src/core/storage";
+import { loadData, saveData, serialize, type StorageLike } from "../src/core/storage";
 import { addPerson, addRide, createTrip, emptyData } from "../src/core/trips";
 import type { AppData } from "../src/core/types";
 import { App } from "../src/ui/App";
@@ -202,5 +202,62 @@ describe("importing uber receipts", () => {
     const saved = paste("a grocery list\nmilk\neggs");
     expect(container.querySelector(".err")?.textContent).toContain("doesn't look like");
     expect(saved().trips[0].rides).toHaveLength(1);
+  });
+});
+
+describe("importing another phone's export", () => {
+  /** The same trip, with a ride Blair logged that Alex hasn't seen. */
+  function blairsFile(mine: AppData): string {
+    const theirs = JSON.parse(JSON.stringify(mine)) as AppData;
+    const trip = theirs.trips[0];
+    addRide(trip, {
+      description: "Blair's dinner run", from: "", to: "", amount: "42",
+      paidBy: trip.people[1].id, riders: trip.people.map((person) => person.id),
+    });
+    return serialize(theirs);
+  }
+
+  /** Feed a file to the hidden import input, as picking one would. */
+  async function importFile(text: string): Promise<void> {
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [new File([text], "rideshare.json", { type: "application/json" })],
+    });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    // FileReader resolves on a macrotask and the merge lands a tick after it,
+    // so wait for the banner the handler always ends with rather than guessing.
+    for (let tick = 0; tick < 50 && !container.querySelector(".note, .err"); tick += 1) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1)); });
+    }
+  }
+
+  it("adds their rides instead of replacing yours", async () => {
+    const data = seeded();
+    const file = blairsFile(data);
+    const saved = mount(data);
+    await importFile(file);
+
+    const rides = saved().trips[0].rides;
+    expect(rides.map((ride) => ride.description)).toEqual(["Airport → Hotel", "Blair's dinner run"]);
+    expect(container.querySelector(".note")?.textContent).toBe("Added 1 ride.");
+    expect(container.querySelector(".trip-card")?.textContent).toContain("$72.00");
+  });
+
+  it("says so when the file had nothing you didn't already have", async () => {
+    const data = seeded();
+    const saved = mount(data);
+    await importFile(serialize(data));
+
+    expect(saved().trips[0].rides).toHaveLength(1);
+    expect(container.querySelector(".note")?.textContent).toContain("Nothing new");
+  });
+
+  it("still reports a file that isn't Ride Share data", async () => {
+    const saved = mount(seeded());
+    await importFile('{"hello":"world"}');
+
+    expect(saved().trips[0].rides).toHaveLength(1);
+    expect(container.querySelector(".err")?.textContent).toContain("isn't Ride Share data");
   });
 });

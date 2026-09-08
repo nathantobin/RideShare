@@ -181,6 +181,10 @@ td { padding: 8px 0; border-top: 1px solid var(--line); text-align: right; }
 .hint { color: var(--muted); font-size: 13px; margin-top: 10px; }
 .err { background: var(--bad); color: #fff; padding: 10px 16px; font-size: 14px; text-align: center; }
 .err:empty { display: none; }
+.note {
+  background: var(--accent-soft); color: var(--accent); border-bottom: 1px solid var(--accent);
+  padding: 10px 16px; font-size: 14px; text-align: center; font-weight: 550;
+}
 
 .data-bar {
   display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;

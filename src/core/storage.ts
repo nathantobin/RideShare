@@ -1,12 +1,12 @@
-import type { AppData, Person, Ride, Trip } from "./types";
+import type { AppData, Person, Ride, Tombstones, Trip } from "./types";
 import { ValidationError } from "./types";
 import { emptyData, newId } from "./trips";
 
-export const STORAGE_KEY = "rideshare.data.v4";
+export const STORAGE_KEY = "rideshare.data.v5";
 /** Keys trips were saved under before, newest first. Read once on load so an
  *  upgrade doesn't look like someone's trips vanished; the next save writes to
  *  STORAGE_KEY and the old key is simply left behind. */
-export const LEGACY_KEYS = ["rideshare.data.v3"];
+export const LEGACY_KEYS = ["rideshare.data.v4", "rideshare.data.v3"];
 
 /** Just enough of the Storage API to be swapped out in tests. */
 export interface StorageLike {
@@ -45,9 +45,10 @@ export function parseImport(text: string): AppData {
   return parseAppData(parsed);
 }
 
-/** Versions we can still read. 3 predates the Uber import, and a v3 file
- *  loads as a v4 one with no ride linked to a receipt. */
-const READABLE = new Set([3, 4]);
+/** Versions we can still read. 3 predates the Uber import and 4 predates
+ *  merging; both load with their records stamped as of the trip's own date, so
+ *  any edit made since is the later one. */
+const READABLE = new Set([3, 4, 5]);
 
 /**
  * Turn untrusted JSON into AppData, dropping anything that doesn't hold
@@ -63,9 +64,17 @@ function parseAppData(input: unknown): AppData {
   const trips = input.trips.map((raw): Trip => {
     if (!isRecord(raw)) throw new ValidationError("That file has a trip we can't read.");
 
+    const created = typeof raw.createdAt === "string" ? raw.createdAt : new Date().toISOString();
+    const stamp = (value: unknown) => (typeof value === "string" && value ? value : created);
+
     const people: Person[] = (Array.isArray(raw.people) ? raw.people : []).flatMap((person) =>
       isRecord(person) && typeof person.id === "string" && typeof person.name === "string"
-        ? [{ id: person.id, name: person.name }]
+        ? [{
+          id: person.id,
+          name: person.name,
+          createdAt: stamp(person.createdAt),
+          updatedAt: stamp(person.updatedAt),
+        }]
         : [],
     );
     const known = new Set(people.map((person) => person.id));
@@ -86,24 +95,39 @@ function parseAppData(input: unknown): AppData {
         paidBy: ride.paidBy,
         riders,
         ...(typeof ride.uberId === "string" && ride.uberId ? { uberId: ride.uberId } : {}),
+        createdAt: stamp(ride.createdAt),
+        updatedAt: stamp(ride.updatedAt),
       }];
     });
 
     return {
       id: typeof raw.id === "string" ? raw.id : newId(),
       name: typeof raw.name === "string" ? raw.name : "Imported trip",
-      createdAt: typeof raw.createdAt === "string" ? raw.createdAt : new Date().toISOString(),
+      createdAt: created,
+      updatedAt: stamp(raw.updatedAt),
       people,
       rides,
+      tombstones: parseTombstones(raw.tombstones),
     };
   });
 
   const activeTripId = typeof input.activeTripId === "string" ? input.activeTripId : null;
   return {
-    version: 4,
+    version: 5,
     trips,
+    tombstones: parseTombstones(input.tombstones),
     activeTripId: trips.some((trip) => trip.id === activeTripId) ? activeTripId : (trips[0]?.id ?? null),
   };
+}
+
+/** Ids mapped to when they were deleted, dropping anything else. */
+function parseTombstones(input: unknown): Tombstones {
+  if (!isRecord(input)) return {};
+  const tombstones: Tombstones = {};
+  for (const [id, deletedAt] of Object.entries(input)) {
+    if (typeof deletedAt === "string" && deletedAt) tombstones[id] = deletedAt;
+  }
+  return tombstones;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

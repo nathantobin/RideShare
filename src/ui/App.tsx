@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { Dashboard } from "./Dashboard";
 import { hashFor, parseHash, type Route } from "./router";
 import { TripPage } from "./TripPage";
-import { useAppData, useError } from "./store";
+import { useAppData, useFlash } from "./store";
 
 /** The current route, kept in step with the URL hash. */
 function useRoute(): Route {
@@ -22,7 +22,7 @@ export function navigate(route: Route): void {
 export function App() {
   const data = useAppData();
   const route = useRoute();
-  const error = useError();
+  const flash = useFlash();
 
   const trip = route.name === "trip"
     ? data.trips.find((candidate) => candidate.id === route.tripId) ?? null
@@ -34,7 +34,7 @@ export function App() {
 
   return (
     <>
-      {error && <div class="err">{error}</div>}
+      {flash && <div class={flash.kind === "error" ? "err" : "note"}>{flash.message}</div>}
       {trip ? <TripPage trip={trip} /> : <Dashboard trips={data.trips} />}
     </>
   );

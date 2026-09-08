@@ -6,8 +6,29 @@ export function newId(): string {
   return crypto.randomUUID();
 }
 
+let lastStamp = 0;
+
+/**
+ * The clock every record is stamped with, which never repeats itself.
+ *
+ * Date.now() only has milliseconds, and adding three riders takes rather less
+ * than one, so a plain clock hands them all the same stamp - and a merge, with
+ * no way to order them, would shuffle the riders on the trip into some other
+ * order on the way through. Stepping forward a millisecond when the clock
+ * hasn't moved keeps every record on this device distinct and in order.
+ *
+ * Two phones still won't agree to the millisecond, so a merge can call the
+ * "later" of two genuinely simultaneous edits wrong. That takes two people
+ * editing the same ride in the same moment to notice, and the merge still lands
+ * on one answer rather than losing both.
+ */
+export function now(): string {
+  lastStamp = Math.max(Date.now(), lastStamp + 1);
+  return new Date(lastStamp).toISOString();
+}
+
 export function emptyData(): AppData {
-  return { version: 4, activeTripId: null, trips: [] };
+  return { version: 5, activeTripId: null, trips: [], tombstones: {} };
 }
 
 /** Name a ride after its stops when the description is left blank. */
@@ -36,12 +57,19 @@ export function createTrip(data: AppData, name: string, copyPeopleFrom?: Trip | 
   if (data.trips.some((trip) => trip.name.toLowerCase() === trimmed.toLowerCase())) {
     throw new ValidationError(`There's already a trip called "${trimmed}".`);
   }
+  const stamp = now();
   const trip: Trip = {
     id: newId(),
     name: trimmed,
-    createdAt: new Date().toISOString(),
-    people: (copyPeopleFrom?.people ?? []).map((person) => ({ id: newId(), name: person.name })),
+    createdAt: stamp,
+    updatedAt: stamp,
+    // Stamped one at a time, so copied riders keep the order they were in.
+    people: (copyPeopleFrom?.people ?? []).map((person) => {
+      const at = now();
+      return { id: newId(), name: person.name, createdAt: at, updatedAt: at };
+    }),
     rides: [],
+    tombstones: {},
   };
   data.trips.push(trip);
   data.activeTripId = trip.id;
@@ -55,11 +83,20 @@ export function renameTrip(data: AppData, trip: Trip, name: string): Trip {
     throw new ValidationError(`There's already a trip called "${trimmed}".`);
   }
   trip.name = trimmed;
+  trip.updatedAt = now();
   return trip;
 }
 
+/**
+ * Drop a trip, leaving only the fact that it was dropped.
+ *
+ * The trip's contents go for good - names, rides, and the addresses an Uber
+ * import put in them - so "this can't be undone" stays true. What's kept is one
+ * timestamp against the id, which is what stops a merge putting it all back.
+ */
 export function deleteTrip(data: AppData, trip: Trip): void {
   data.trips = data.trips.filter((other) => other.id !== trip.id);
+  data.tombstones[trip.id] = now();
   if (data.activeTripId === trip.id) {
     data.activeTripId = data.trips[0]?.id ?? null;
   }
@@ -71,7 +108,8 @@ export function addPerson(trip: Trip, name: string): Person {
   if (trip.people.some((person) => person.name.toLowerCase() === trimmed.toLowerCase())) {
     throw new ValidationError(`${trimmed} is already on this trip.`);
   }
-  const person: Person = { id: newId(), name: trimmed };
+  const stamp = now();
+  const person: Person = { id: newId(), name: trimmed, createdAt: stamp, updatedAt: stamp };
   trip.people.push(person);
   return person;
 }
@@ -84,6 +122,7 @@ export function renamePerson(trip: Trip, personId: string, name: string): Person
     throw new ValidationError(`${trimmed} is already on this trip.`);
   }
   person.name = trimmed;
+  person.updatedAt = now();
   return person;
 }
 
@@ -96,6 +135,7 @@ export function removePerson(trip: Trip, personId: string): Person {
     );
   }
   trip.people = trip.people.filter((other) => other.id !== personId);
+  trip.tombstones[personId] = now();
   return person;
 }
 
@@ -120,7 +160,8 @@ export interface RideInput {
   uberId?: string;
 }
 
-function buildRide(trip: Trip, input: RideInput): Omit<Ride, "id"> {
+/** The fields the form supplies; the caller stamps the timestamps. */
+function buildRide(trip: Trip, input: RideInput): Omit<Ride, "id" | "createdAt" | "updatedAt"> {
   const amountCents = parseAmount(input.amount);
   if (trip.people.length === 0) throw new ValidationError("Add some people to the trip first.");
   requirePerson(trip, input.paidBy);
@@ -144,7 +185,8 @@ function buildRide(trip: Trip, input: RideInput): Omit<Ride, "id"> {
 }
 
 export function addRide(trip: Trip, input: RideInput): Ride {
-  const ride: Ride = { id: newId(), ...buildRide(trip, input) };
+  const stamp = now();
+  const ride: Ride = { id: newId(), ...buildRide(trip, input), createdAt: stamp, updatedAt: stamp };
   trip.rides.push(ride);
   return ride;
 }
@@ -152,10 +194,11 @@ export function addRide(trip: Trip, input: RideInput): Ride {
 export function updateRide(trip: Trip, rideId: string, input: RideInput): Ride {
   const ride = trip.rides.find((other) => other.id === rideId);
   if (!ride) throw new ValidationError("That ride is no longer on this trip.");
-  Object.assign(ride, buildRide(trip, input));
+  Object.assign(ride, buildRide(trip, input), { updatedAt: now() });
   return ride;
 }
 
 export function removeRide(trip: Trip, rideId: string): void {
   trip.rides = trip.rides.filter((ride) => ride.id !== rideId);
+  trip.tombstones[rideId] = now();
 }

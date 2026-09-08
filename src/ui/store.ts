@@ -1,8 +1,15 @@
 import { useEffect, useState } from "preact/hooks";
+import { mergeData, summariseMerge } from "../core/merge";
 import { loadData, saveData, type StorageLike } from "../core/storage";
 import { emptyData } from "../core/trips";
 import type { AppData } from "../core/types";
 import { ValidationError } from "../core/types";
+
+/** Something to say at the top of the screen: what went wrong, or what landed. */
+export interface Flash {
+  kind: "error" | "note";
+  message: string;
+}
 
 /**
  * One mutable copy of the data, plus a way for components to hear about
@@ -11,14 +18,17 @@ import { ValidationError } from "../core/types";
  */
 let storage: StorageLike | null = null;
 let data: AppData = emptyData();
-let error: string | null = null;
-let errorTimer: number | undefined;
+let flash: Flash | null = null;
+let flashTimer: number | undefined;
 let version = 0;
 const listeners = new Set<() => void>();
 
 export function initStore(from: StorageLike): void {
   storage = from;
   data = loadData(from);
+  // A banner is about what just happened, so a fresh store starts without one.
+  flash = null;
+  window.clearTimeout(flashTimer);
   bump();
 }
 
@@ -43,17 +53,25 @@ export function useAppData(): AppData {
   return data;
 }
 
-export function useError(): string | null {
+export function useFlash(): Flash | null {
   useStore();
-  return error;
+  return flash;
 }
 
 export function showError(message: string | null): void {
-  error = message;
-  window.clearTimeout(errorTimer);
-  if (message) {
-    errorTimer = window.setTimeout(() => {
-      error = null;
+  show(message === null ? null : { kind: "error", message });
+}
+
+export function showNote(message: string): void {
+  show({ kind: "note", message });
+}
+
+function show(next: Flash | null): void {
+  flash = next;
+  window.clearTimeout(flashTimer);
+  if (next) {
+    flashTimer = window.setTimeout(() => {
+      flash = null;
       bump();
     }, 6000);
   }
@@ -81,9 +99,17 @@ export function commit<T>(change: (data: AppData) => T): T | null {
   return result;
 }
 
-/** Replace everything, for import. */
-export function replaceData(next: AppData): void {
-  data = next;
+/**
+ * Fold an imported file into what's already here, and say what it brought.
+ *
+ * Import used to replace everything, which meant two people on one trip could
+ * only ever hand the whole thing back and forth. Merging means both of you can
+ * log rides and neither copy loses any.
+ */
+export function mergeIntoData(incoming: AppData): { trips: number; rides: number } {
+  const before = data;
+  data = mergeData(before, incoming);
   if (storage) saveData(storage, data);
-  showError(null);
+  bump();
+  return summariseMerge(before, data);
 }

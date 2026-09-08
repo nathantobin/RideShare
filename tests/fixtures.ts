@@ -5,21 +5,24 @@ import type { Trip } from "../src/core/types";
  * totals were verified by hand before the settlement code was rewritten.
  */
 export function sampleTrip(): Trip {
+  const stamp = "2026-06-01T00:00:00.000Z";
   const people = [
     { id: "alex", name: "Alex" },
     { id: "blair", name: "Blair" },
     { id: "casey", name: "Casey" },
     { id: "drew", name: "Drew" },
     { id: "erin", name: "Erin-Fran" },
-  ];
+  ].map((person) => ({ ...person, createdAt: stamp, updatedAt: stamp }));
   const all = people.map((person) => person.id);
   const ride = (id: string, amountCents: number, paidBy: string, riders: string[]) =>
-    ({ id, description: id, from: "", to: "", amountCents, paidBy, riders });
+    ({ id, description: id, from: "", to: "", amountCents, paidBy, riders, createdAt: stamp, updatedAt: stamp });
 
   return {
     id: "trip",
     name: "Charleston",
-    createdAt: "2026-06-01T00:00:00.000Z",
+    createdAt: stamp,
+    updatedAt: stamp,
+    tombstones: {},
     people,
     rides: [
       ride("r1", 4800, "erin", all),

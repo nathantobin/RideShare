@@ -25,7 +25,11 @@ describe("balancesFor", () => {
   it("counts someone who paid but wasn't in the car", () => {
     const trip: Trip = {
       ...sampleTrip(),
-      rides: [{ id: "r", description: "r", from: "", to: "", amountCents: 1000, paidBy: "alex", riders: ["blair"] }],
+      rides: [{
+        id: "r", description: "r", from: "", to: "", amountCents: 1000,
+        paidBy: "alex", riders: ["blair"],
+        createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z",
+      }],
     };
     const balances = balancesFor(trip);
     expect(netOf(balances, "alex")).toBe(1000);
