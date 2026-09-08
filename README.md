@@ -11,6 +11,8 @@ weekend, not fifteen.
 
 - **No account, no install.** It's a web page. Open it on your phone in the back
   of the cab.
+- **A dashboard of your trips.** Every trip shows its riders, rides, total and
+  whether anyone still owes anything, and opens with one tap.
 - **Trips keep rides separate.** Charleston in June doesn't get mixed up with
   Austin in March, and a new trip can copy the same crew across.
 - **From / To stops.** Leave the description blank and a ride names itself
@@ -22,8 +24,11 @@ weekend, not fifteen.
 
 ## Using it
 
-The page walks top to bottom: **create a trip → add riders → add rides → settle
-up**. Click any step's header to reopen it later.
+The home screen lists your trips, with buttons to create, rename and delete
+them. Opening one gives you its own page, which walks top to bottom: **riders →
+rides → settle up**. Click any step's header to reopen it later, and "All trips"
+to go back. Each trip has its own URL, so the browser's back button and a
+bookmark both work.
 
 Your trips are saved in your own browser and never leave your device. That also
 means they're tied to that browser, so use **Export JSON** to back a trip up or
@@ -71,8 +76,12 @@ src/core/     the math and the data model, no DOM in sight
   settle.ts     balances, and who pays whom
   trips.ts      trips, people, rides, validation
   storage.ts    saving, loading, import and export
-src/ui/       rendering and event wiring
-tests/        vitest suites covering everything in core/
+src/ui/
+  app.ts        the shell: state, persistence, and which view is showing
+  router.ts     hash routes, so every trip has its own URL
+  dashboard.ts  the list of trips
+  trip-view.ts  one trip: riders, rides, settle up
+tests/        vitest suites covering core/ and the router
 ```
 
 `src/core` is plain TypeScript with no browser APIs, which is what makes it

@@ -150,3 +150,44 @@ td { padding: 8px 0; border-top: 1px solid var(--line); text-align: right; }
   display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
   margin: 4px 0 0; font-size: 13px; color: var(--muted);
 }
+
+/* ---------------------------------------------------------------- pages */
+
+.page-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 4px 2px 14px; }
+.page-head h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+.page-head .back { flex-basis: 100%; font-size: 13px; color: var(--muted); text-decoration: none; }
+.page-head .back:hover { color: var(--accent); }
+.trip-head h1 { display: flex; align-items: baseline; gap: 8px; }
+.trip-head .trip-meta { margin: 0; font-size: 13px; color: var(--muted); }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px 16px; }
+.new-trip { margin-bottom: 18px; }
+
+.trip-list { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 10px; }
+.trip-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  display: flex; align-items: center; gap: 10px; padding: 0 12px 0 0; flex-wrap: wrap;
+}
+.trip-card:hover { border-color: var(--accent); }
+.trip-open {
+  flex: 1; min-width: 0; display: grid; gap: 2px; padding: 14px 4px 14px 16px;
+  color: inherit; text-decoration: none;
+}
+.trip-name { font-weight: 600; font-size: 16px; }
+.trip-meta { font-size: 13px; color: var(--muted); }
+.trip-status { font-size: 13px; color: var(--accent); }
+.trip-card-actions { display: flex; align-items: center; gap: 2px; }
+.trip-date { font-size: 12px; color: var(--muted); margin-right: 6px; }
+button.ghost.danger:hover { color: var(--bad); }
+
+.empty-state {
+  color: var(--muted); font-size: 14px; text-align: center; margin: 0 0 18px;
+  padding: 24px 20px; border: 1px dashed var(--line); border-radius: 12px;
+}
+
+@media (max-width: 480px) {
+  .trip-card { padding-bottom: 10px; }
+  .trip-open { flex-basis: 100%; padding-bottom: 4px; }
+  .trip-card-actions { width: 100%; padding-left: 12px; }
+  .trip-date { margin-right: auto; }
+}
