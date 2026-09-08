@@ -219,7 +219,7 @@ describe("importing another phone's export", () => {
 
   /** Feed a file to the hidden import input, as picking one would. */
   async function importFile(text: string): Promise<void> {
-    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const input = container.querySelector<HTMLInputElement>('.data-bar input[type="file"]')!;
     Object.defineProperty(input, "files", {
       configurable: true,
       value: [new File([text], "rideshare.json", { type: "application/json" })],
@@ -259,5 +259,57 @@ describe("importing another phone's export", () => {
 
     expect(saved().trips[0].rides).toHaveLength(1);
     expect(container.querySelector(".err")?.textContent).toContain("isn't Ride Share data");
+  });
+});
+
+describe("import and export on a trip page", () => {
+  /** Feed a file to the trip page's own import button. */
+  async function importFile(text: string): Promise<void> {
+    const input = container.querySelector<HTMLInputElement>('.data-bar input[type="file"]')!;
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [new File([text], "trip.json", { type: "application/json" })],
+    });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    for (let tick = 0; tick < 50 && !container.querySelector(".note, .err"); tick += 1) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1)); });
+    }
+  }
+
+  it("offers the trip's own export and import", () => {
+    const data = seeded();
+    mount(data, `#/trip/${data.trips[0].id}`);
+    const labels = [...container.querySelectorAll(".data-bar button")].map((b) => b.textContent);
+    expect(labels).toEqual(["Export trip", "Import trip"]);
+  });
+
+  it("merges a file that has this trip in it", async () => {
+    const data = seeded();
+    const theirs = JSON.parse(JSON.stringify(data)) as AppData;
+    addRide(theirs.trips[0], {
+      description: "Blair's dinner run", from: "", to: "", amount: "42",
+      paidBy: theirs.trips[0].people[1].id, riders: [theirs.trips[0].people[1].id],
+    });
+
+    const saved = mount(data, `#/trip/${data.trips[0].id}`);
+    await importFile(serialize(theirs));
+
+    expect(saved().trips[0].rides.map((ride) => ride.description))
+      .toEqual(["Airport → Hotel", "Blair's dinner run"]);
+    expect(container.querySelector(".note")?.textContent).toBe("Added 1 ride.");
+    expect(container.textContent).toContain("$72.00");
+  });
+
+  it("points you at the dashboard for a file about some other trip", async () => {
+    const data = seeded();
+    const elsewhere = emptyData();
+    createTrip(elsewhere, "Austin");
+
+    const saved = mount(data, `#/trip/${data.trips[0].id}`);
+    await importFile(serialize(elsewhere));
+
+    expect(saved().trips).toHaveLength(1);
+    expect(saved().trips[0].rides).toHaveLength(1);
+    expect(container.querySelector(".err")?.textContent).toContain("import from All trips");
   });
 });

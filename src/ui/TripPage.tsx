@@ -1,14 +1,16 @@
 import { useEffect, useState } from "preact/hooks";
 import { formatMoney } from "../core/money";
+import { serialize, tripDocument } from "../core/storage";
 import { balancesFor, settleUp, tripTotalCents } from "../core/settle";
 import {
   addPerson, personName, removePerson, removeRide, renamePerson, renameTrip, routeLabel,
 } from "../core/trips";
 import type { Ride, Trip } from "../core/types";
+import { DataBar, describeMerge, slug } from "./DataBar";
 import { RideForm } from "./RideForm";
 import { Step } from "./Step";
 import { UberImport } from "./UberImport";
-import { commit, useAppData } from "./store";
+import { commit, mergeIntoTrip, useAppData } from "./store";
 
 const STEP_RIDERS = 1;
 const STEP_RIDES = 2;
@@ -52,7 +54,29 @@ export function TripPage({ trip }: { trip: Trip }) {
                  editingRideId={editingRideId} setEditingRideId={setEditingRideId} />
 
       <SettleStep trip={trip} />
+
+      <TripDataBar trip={trip} />
     </>
+  );
+}
+
+/**
+ * This trip on its own, for sending round the group and taking back what
+ * everyone logged. Importing here only touches this trip - a file with other
+ * trips in it is imported whole from the dashboard instead.
+ */
+function TripDataBar({ trip }: { trip: Trip }) {
+  return (
+    <DataBar
+      hint="Send this trip to the group; importing merges their copy back into it."
+      exportLabel="Export trip"
+      importLabel="Import trip"
+      download={() => ({
+        filename: `rideshare-${slug(trip.name)}-${new Date().toISOString().slice(0, 10)}.json`,
+        text: serialize(tripDocument(trip)),
+      })}
+      merge={(incoming) => describeMerge(mergeIntoTrip(incoming, trip.id))}
+    />
   );
 }
 

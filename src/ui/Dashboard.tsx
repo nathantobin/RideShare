@@ -1,12 +1,12 @@
-import { useRef, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import { formatMoney } from "../core/money";
 import { balancesFor, settleUp, tripTotalCents } from "../core/settle";
-import { parseImport, serialize } from "../core/storage";
+import { serialize } from "../core/storage";
 import { createTrip, deleteTrip, renameTrip } from "../core/trips";
 import type { Trip } from "../core/types";
 import { navigate } from "./App";
-import { downloadFile, readTextFile } from "./dom";
-import { commit, mergeIntoData, showError, showNote, useAppData } from "./store";
+import { DataBar, describeMerge } from "./DataBar";
+import { commit, mergeIntoData, useAppData } from "./store";
 
 function statusOf(trip: Trip): string {
   if (trip.rides.length === 0) return "No rides yet";
@@ -24,14 +24,6 @@ function formatDate(iso: string): string {
 
 function count(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
-}
-
-/** What an import brought in, or that it brought nothing. */
-function describeMerge({ trips, rides }: { trips: number; rides: number }): string {
-  const added = [trips && count(trips, "trip"), rides && count(rides, "ride")].filter(Boolean);
-  return added.length === 0
-    ? "Nothing new in that file - you already had all of it."
-    : `Added ${added.join(" and ")}.`;
 }
 
 export function Dashboard({ trips }: { trips: Trip[] }) {
@@ -79,7 +71,7 @@ export function Dashboard({ trips }: { trips: Trip[] }) {
           </p>
         )}
 
-      <DataBar />
+      <AllTripsBar />
     </>
   );
 }
@@ -115,35 +107,19 @@ function TripCard({ trip }: { trip: Trip }) {
   );
 }
 
-function DataBar() {
+/** Everything in this browser, for backing up or handing to someone. */
+function AllTripsBar() {
   const data = useAppData();
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  const importFile = async (event: Event) => {
-    const input = event.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    try {
-      showNote(describeMerge(mergeIntoData(parseImport(await readTextFile(file)))));
-    } catch (problem) {
-      showError(problem instanceof Error ? problem.message : "Couldn't import that file.");
-    } finally {
-      input.value = "";
-    }
-  };
-
   return (
-    <div class="data-bar">
-      <span>Saved in this browser. Importing merges another export into these.</span>
-      <button
-        class="ghost"
-        onClick={() => downloadFile(`rideshare-${new Date().toISOString().slice(0, 10)}.json`, serialize(data))}
-      >
-        Export JSON
-      </button>
-      {/* No confirmation: merging only ever adds, so there's nothing to lose. */}
-      <button class="ghost" onClick={() => fileInput.current?.click()}>Import JSON</button>
-      <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={importFile} />
-    </div>
+    <DataBar
+      hint="Saved in this browser. Importing merges another export into these."
+      exportLabel="Export JSON"
+      importLabel="Import JSON"
+      download={() => ({
+        filename: `rideshare-${new Date().toISOString().slice(0, 10)}.json`,
+        text: serialize(data),
+      })}
+      merge={(incoming) => describeMerge(mergeIntoData(incoming))}
+    />
   );
 }

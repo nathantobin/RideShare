@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { mergeData, summariseMerge } from "../core/merge";
+import { mergeData, mergeTripFrom, summariseMerge } from "../core/merge";
 import { loadData, saveData, type StorageLike } from "../core/storage";
 import { emptyData } from "../core/trips";
 import type { AppData } from "../core/types";
@@ -112,4 +112,18 @@ export function mergeIntoData(incoming: AppData): { trips: number; rides: number
   if (storage) saveData(storage, data);
   bump();
   return summariseMerge(before, data);
+}
+
+/**
+ * The same, for one trip: what a file says about the trip you're looking at,
+ * and nothing it says about any other. Throws if the file hasn't got it, before
+ * anything is changed or saved.
+ */
+export function mergeIntoTrip(incoming: AppData, tripId: string): { rides: number } {
+  const before = data;
+  const merged = mergeTripFrom(before, incoming, tripId);
+  data = merged;
+  if (storage) saveData(storage, data);
+  bump();
+  return { rides: summariseMerge(before, data).rides };
 }

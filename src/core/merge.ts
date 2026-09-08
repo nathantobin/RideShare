@@ -1,4 +1,5 @@
 import type { AppData, Person, Ride, Tombstones, Trip } from "./types";
+import { ValidationError } from "./types";
 
 /**
  * Folding two copies of the same data back together.
@@ -63,6 +64,28 @@ export function mergeTrips(mine: Trip, theirs: Trip): Trip {
     people: people.sort(byCreation),
     rides,
     tombstones,
+  };
+}
+
+/**
+ * Fold one trip out of a file into the copy already here, leaving every other
+ * trip in both alone.
+ *
+ * This is what importing from a trip's own page does: you're looking at
+ * Charleston and someone has sent you their Charleston, so that's the only
+ * thing that should change. A file that doesn't have this trip in it is a
+ * mistake worth naming rather than a no-op.
+ */
+export function mergeTripFrom(mine: AppData, incoming: AppData, tripId: Trip["id"]): AppData {
+  const theirs = incoming.trips.find((trip) => trip.id === tripId);
+  if (!theirs) {
+    throw new ValidationError(
+      "That file doesn't have this trip in it. To add it as a new trip, import from All trips.",
+    );
+  }
+  return {
+    ...mine,
+    trips: mine.trips.map((trip) => (trip.id === tripId ? mergeTrips(trip, theirs) : trip)),
   };
 }
 

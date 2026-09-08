@@ -48,6 +48,13 @@ their own rides; someone exports and sends the file round; each person imports
 it and ends up with the lot. Import the same file twice and the second time
 changes nothing.
 
+A trip's own page has **Export trip** and **Import trip** at the bottom, which
+is usually the pair you want: the file holds that one trip, and importing only
+touches the trip you're looking at, so a file about some other trip is refused
+rather than folded in by accident. The dashboard's **Export JSON** and **Import
+JSON** work on everything at once, and are how a trip you haven't got yet gets
+added.
+
 It isn't live — you get what was in the file when it was sent, not what the
 other phone is doing right now — but nothing is ever lost in the exchange, which
 is the part that would otherwise go wrong.
@@ -151,6 +158,7 @@ src/ui/       Preact components
   store.ts      the one copy of the data, saved on every change
   router.ts     hash routes, so every trip has its own URL
   Dashboard.tsx the list of trips
+  DataBar.tsx   export and import, for one trip or for all of them
   TripPage.tsx  one trip: riders, rides, settle up
   RideForm.tsx  adding and editing a ride
   UberImport.tsx  reviewing parsed receipts before they become rides

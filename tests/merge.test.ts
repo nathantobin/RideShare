@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { mergeData, mergeTrips, summariseMerge } from "../src/core/merge";
+import { mergeData, mergeTripFrom, mergeTrips, summariseMerge } from "../src/core/merge";
 import { balancesFor, tripTotalCents } from "../src/core/settle";
 import {
   addPerson, addRide, createTrip, deleteTrip, emptyData, removePerson, removeRide, renameTrip,
   updateRide,
 } from "../src/core/trips";
+import { ValidationError } from "../src/core/types";
 import type { AppData, Trip } from "../src/core/types";
+import { serialize, tripDocument, parseImport } from "../src/core/storage";
 
 /**
  * Two phones with the same trip on them.
@@ -179,5 +181,77 @@ describe("merging whole files", () => {
 
     expect(summariseMerge(alex, mergeData(alex, blair))).toEqual({ trips: 1, rides: 1 });
     expect(summariseMerge(alex, mergeData(alex, clone(alex)))).toEqual({ trips: 0, rides: 0 });
+  });
+});
+
+describe("one trip out of a file", () => {
+  it("takes that trip's rides and leaves the others alone", () => {
+    const { alex, blair } = twoCopies();
+    const austin = createTrip(alex, "Austin");
+    log(only(blair), "Dinner", "42", "2026-06-14T20:00:00.000Z");
+    createTrip(blair, "Somewhere else");
+
+    const merged = mergeTripFrom(alex, blair, only(alex).id);
+
+    expect(only(merged).rides.map((ride) => ride.description)).toEqual(["Dinner"]);
+    // The file's other trip didn't come along, and mine is untouched.
+    expect(merged.trips.map((trip) => trip.name)).toEqual(["Charleston", "Austin"]);
+    expect(merged.trips[1].id).toBe(austin.id);
+  });
+
+  it("says so when the file hasn't got this trip in it", () => {
+    const { alex } = twoCopies();
+    const other = emptyData();
+    createTrip(other, "Austin");
+
+    expect(() => mergeTripFrom(alex, other, only(alex).id)).toThrow(ValidationError);
+    expect(() => mergeTripFrom(alex, other, only(alex).id)).toThrow(/import from All trips/);
+  });
+
+  it("changes nothing when the file hasn't got it", () => {
+    const { alex } = twoCopies();
+    const before = JSON.stringify(alex);
+    try {
+      mergeTripFrom(alex, emptyData(), only(alex).id);
+    } catch {
+      // expected
+    }
+    expect(JSON.stringify(alex)).toBe(before);
+  });
+});
+
+describe("exporting one trip", () => {
+  it("round-trips through the importer", () => {
+    const { alex } = twoCopies();
+    log(only(alex), "Airport run", "30", "2026-06-14T10:00:00.000Z");
+
+    const reread = parseImport(serialize(tripDocument(only(alex))));
+
+    expect(reread.trips).toHaveLength(1);
+    expect(reread.trips[0]).toEqual(only(alex));
+  });
+
+  it("carries the trip's own deletions but not other trips'", () => {
+    const { alex } = twoCopies();
+    const ride = log(only(alex), "Airport run", "30", "2026-06-14T10:00:00.000Z");
+    const austin = createTrip(alex, "Austin");
+    removeRide(only(alex), ride.id);
+    deleteTrip(alex, austin);
+
+    const document = tripDocument(only(alex));
+
+    expect(document.trips[0].tombstones[ride.id]).toBeTruthy();
+    expect(document.tombstones).toEqual({});
+  });
+
+  it("is enough on its own to stop a deleted ride coming back", () => {
+    const { alex, blair } = twoCopies();
+    const ride = log(only(blair), "Dinner", "42", "2026-06-14T20:00:00.000Z");
+    // Alex takes Blair's trip, then deletes the ride and sends it back.
+    const withRide = mergeTripFrom(alex, blair, only(alex).id);
+    removeRide(only(withRide), ride.id);
+
+    const returned = mergeTripFrom(blair, parseImport(serialize(tripDocument(only(withRide)))), only(blair).id);
+    expect(only(returned).rides).toEqual([]);
   });
 });

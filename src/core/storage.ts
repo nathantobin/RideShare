@@ -34,6 +34,19 @@ export function serialize(data: AppData): string {
   return `${JSON.stringify(data, null, 2)}\n`;
 }
 
+/**
+ * One trip on its own, in the same shape as a full export so that whoever gets
+ * it can import it either way - into that trip from its own page, or from the
+ * dashboard as a trip they didn't have.
+ *
+ * The trip brings its own record of what was deleted on it, which is what stops
+ * a ride you removed coming back. Deleted *trips* are left out: they're nothing
+ * to do with this one.
+ */
+export function tripDocument(trip: Trip): AppData {
+  return { version: 5, activeTripId: trip.id, trips: [trip], tombstones: {} };
+}
+
 /** Read a file the user picked with the Import button. */
 export function parseImport(text: string): AppData {
   let parsed: unknown;
