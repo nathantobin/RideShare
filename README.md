@@ -76,17 +76,19 @@ src/core/     the math and the data model, no DOM in sight
   settle.ts     balances, and who pays whom
   trips.ts      trips, people, rides, validation
   storage.ts    saving, loading, import and export
-src/ui/
-  app.ts        the shell: state, persistence, and which view is showing
+src/ui/       Preact components
+  App.tsx       the error banner, and which view the route is showing
+  store.ts      the one copy of the data, saved on every change
   router.ts     hash routes, so every trip has its own URL
-  dashboard.ts  the list of trips
-  trip-view.ts  one trip: riders, rides, settle up
-tests/        vitest suites covering core/ and the router
+  Dashboard.tsx the list of trips
+  TripPage.tsx  one trip: riders, rides, settle up
+  RideForm.tsx  adding and editing a ride
+tests/        vitest suites for core/, the router, and the components
 ```
 
-`src/core` is plain TypeScript with no browser APIs, which is what makes it
-straightforward to test — and easy to reuse if this ever grows a CLI or a
-backend.
+TypeScript throughout, Preact for the views, Vite to build. `src/core` is plain
+TypeScript with no browser APIs, which is what makes it straightforward to test
+— and easy to reuse if this ever grows a CLI or a backend.
 
 ## Contributing
 
