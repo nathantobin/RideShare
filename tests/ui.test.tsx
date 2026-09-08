@@ -51,7 +51,7 @@ function click(text: string): void {
 }
 
 function type(selector: string, value: string): void {
-  const input = container.querySelector<HTMLInputElement>(selector)!;
+  const input = container.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)!;
   input.value = value;
   act(() => { input.dispatchEvent(new Event("input", { bubbles: true })); });
 }
@@ -129,5 +129,78 @@ describe("trip page", () => {
     click("Add ride");
     expect(saved().trips[0].rides).toHaveLength(1);
     expect(container.querySelector(".err")?.textContent).toContain("isn't a number");
+  });
+});
+
+describe("importing uber receipts", () => {
+  const CSV = [
+    "City,Product Type,Trip or Order Status,Request Time,Begin Trip Address,Dropoff Address,Fare Amount,Fare Currency,Trip or Order ID",
+    "Charleston,UberX,COMPLETED,2026-06-14 18:32:11 +0000 UTC,\"1455 Market St, Charleston, SC\",Airport,24.53,USD,trip-a",
+    "Charleston,UberX,CANCELED,2026-06-14 19:02:00 +0000 UTC,Hotel,Bar,0,USD,trip-b",
+    "Charleston,UberX,COMPLETED,2026-06-15 09:00:00 +0000 UTC,Hotel,Beach,18.00,USD,trip-c",
+  ].join("\n");
+
+  /** Open a seeded trip and paste the export into the importer. */
+  function paste(text: string, data = seeded()): () => AppData {
+    const saved = mount(data, `#/trip/${data.trips[0].id}`);
+    click("Import from Uber");
+    type("#uber-text", text);
+    click("Read receipts");
+    return saved;
+  }
+
+  it("lists what it found, oldest first, and says what it left out", () => {
+    paste(CSV);
+    const rows = [...container.querySelectorAll(".uber-row")];
+    expect(rows.map((row) => row.querySelector(".desc")?.textContent))
+      .toEqual(["1455 Market St → Airport", "Hotel → Beach"]);
+    expect(rows[0].textContent).toContain("$24.53");
+    expect(container.querySelector(".uber-skipped")?.textContent).toContain("1 left out");
+  });
+
+  it("logs the ticked receipts as rides paid by one person", () => {
+    const saved = paste(CSV);
+    click("Add 2 rides");
+
+    const trip = saved().trips[0];
+    expect(trip.rides).toHaveLength(3); // the seeded ride, plus two imported
+    const imported = trip.rides.slice(1);
+    expect(imported.map((ride) => ride.amountCents)).toEqual([2453, 1800]);
+    expect(imported.map((ride) => ride.uberId)).toEqual(["trip-a", "trip-c"]);
+    expect(imported.every((ride) => ride.paidBy === trip.people[0].id)).toBe(true);
+    expect(container.textContent).toContain("$72.53");
+  });
+
+  it("unticks rides from a second upload of the same export", () => {
+    const data = seeded();
+    paste(CSV, data);
+    click("Add 2 rides");
+    click("Import from Uber");
+    type("#uber-text", CSV);
+    click("Read receipts");
+
+    expect(container.textContent).toContain("already imported");
+    const add = [...container.querySelectorAll("button")].find((b) => b.textContent?.startsWith("Add "));
+    expect(add?.textContent).toBe("Add 0 rides");
+    expect(add?.disabled).toBe(true);
+  });
+
+  it("reads a pasted receipt email too", () => {
+    const saved = paste([
+      "Thanks for riding, Nathan",
+      "Total $32.10",
+      "June 14, 2026",
+      "6:32 PM | Hotel, Charleston",
+      "6:51 PM | Airport, Charleston",
+    ].join("\n"));
+
+    click("Add 1 ride");
+    expect(saved().trips[0].rides[1]).toMatchObject({ amountCents: 3210, from: "Hotel", to: "Airport" });
+  });
+
+  it("says so when the text isn't receipts, and adds nothing", () => {
+    const saved = paste("a grocery list\nmilk\neggs");
+    expect(container.querySelector(".err")?.textContent).toContain("doesn't look like");
+    expect(saved().trips[0].rides).toHaveLength(1);
   });
 });
