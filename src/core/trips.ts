@@ -7,7 +7,7 @@ export function newId(): string {
 }
 
 export function emptyData(): AppData {
-  return { version: 3, activeTripId: null, trips: [] };
+  return { version: 4, activeTripId: null, trips: [] };
 }
 
 /** Name a ride after its stops when the description is left blank. */
@@ -116,6 +116,8 @@ export interface RideInput {
   amount: string | number;
   paidBy: string;
   riders: string[];
+  /** Only set by the Uber import; the ride form leaves it alone. */
+  uberId?: string;
 }
 
 function buildRide(trip: Trip, input: RideInput): Omit<Ride, "id"> {
@@ -135,6 +137,9 @@ function buildRide(trip: Trip, input: RideInput): Omit<Ride, "id"> {
     amountCents,
     paidBy: input.paidBy,
     riders,
+    // Left off entirely when absent, so editing an imported ride through the
+    // form keeps the link to its receipt instead of clearing it.
+    ...(input.uberId ? { uberId: input.uberId } : {}),
   };
 }
 

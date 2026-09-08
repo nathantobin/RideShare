@@ -15,6 +15,9 @@ export interface Ride {
   amountCents: number;
   paidBy: Person["id"];
   riders: Person["id"][];
+  /** Uber's trip id, set when the ride came from an imported receipt, so
+   *  uploading the same export twice doesn't log every ride again. */
+  uberId?: string;
 }
 
 export interface Trip {
@@ -26,7 +29,7 @@ export interface Trip {
 }
 
 export interface AppData {
-  version: 3;
+  version: 4;
   activeTripId: Trip["id"] | null;
   trips: Trip[];
 }

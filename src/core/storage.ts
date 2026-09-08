@@ -2,7 +2,11 @@ import type { AppData, Person, Ride, Trip } from "./types";
 import { ValidationError } from "./types";
 import { emptyData, newId } from "./trips";
 
-export const STORAGE_KEY = "rideshare.data.v3";
+export const STORAGE_KEY = "rideshare.data.v4";
+/** Keys trips were saved under before, newest first. Read once on load so an
+ *  upgrade doesn't look like someone's trips vanished; the next save writes to
+ *  STORAGE_KEY and the old key is simply left behind. */
+export const LEGACY_KEYS = ["rideshare.data.v3"];
 
 /** Just enough of the Storage API to be swapped out in tests. */
 export interface StorageLike {
@@ -11,7 +15,8 @@ export interface StorageLike {
 }
 
 export function loadData(storage: StorageLike): AppData {
-  const raw = storage.getItem(STORAGE_KEY);
+  const raw = storage.getItem(STORAGE_KEY)
+    ?? LEGACY_KEYS.map((key) => storage.getItem(key)).find((value) => value != null);
   if (!raw) return emptyData();
   try {
     return parseAppData(JSON.parse(raw));
@@ -40,13 +45,18 @@ export function parseImport(text: string): AppData {
   return parseAppData(parsed);
 }
 
+/** Versions we can still read. 3 predates the Uber import, and a v3 file
+ *  loads as a v4 one with no ride linked to a receipt. */
+const READABLE = new Set([3, 4]);
+
 /**
  * Turn untrusted JSON into AppData, dropping anything that doesn't hold
  * together - a ride whose payer isn't on the trip, say - rather than letting a
  * hand-edited file put the app into a state the UI can't render.
  */
 function parseAppData(input: unknown): AppData {
-  if (!isRecord(input) || input.version !== 3 || !Array.isArray(input.trips)) {
+  if (!isRecord(input) || typeof input.version !== "number" || !READABLE.has(input.version)
+      || !Array.isArray(input.trips)) {
     throw new ValidationError("That file isn't Ride Share data.");
   }
 
@@ -75,6 +85,7 @@ function parseAppData(input: unknown): AppData {
         amountCents: Math.round(ride.amountCents),
         paidBy: ride.paidBy,
         riders,
+        ...(typeof ride.uberId === "string" && ride.uberId ? { uberId: ride.uberId } : {}),
       }];
     });
 
@@ -89,7 +100,7 @@ function parseAppData(input: unknown): AppData {
 
   const activeTripId = typeof input.activeTripId === "string" ? input.activeTripId : null;
   return {
-    version: 3,
+    version: 4,
     trips,
     activeTripId: trips.some((trip) => trip.id === activeTripId) ? activeTripId : (trips[0]?.id ?? null),
   };

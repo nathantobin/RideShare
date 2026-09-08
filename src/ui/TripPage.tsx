@@ -7,6 +7,7 @@ import {
 import type { Ride, Trip } from "../core/types";
 import { RideForm } from "./RideForm";
 import { Step } from "./Step";
+import { UberImport } from "./UberImport";
 import { commit, useAppData } from "./store";
 
 const STEP_RIDERS = 1;
@@ -144,6 +145,7 @@ function RidesStep({ trip, open, onToggle, editingRideId, setEditingRideId }: St
   editingRideId: string | null;
   setEditingRideId: (id: string | null) => void;
 }) {
+  const [importing, setImporting] = useState(false);
   const editing = trip.rides.find((ride) => ride.id === editingRideId) ?? null;
   const summary = trip.rides.length
     ? `${count(trip.rides.length, "ride")}, ${formatMoney(tripTotalCents(trip))}`
@@ -152,12 +154,25 @@ function RidesStep({ trip, open, onToggle, editingRideId, setEditingRideId }: St
   return (
     <Step number={STEP_RIDES} title="Rides" summary={summary} open={open}
           done={trip.rides.length > 0} locked={trip.people.length === 0} onToggle={onToggle}>
-      <RideForm
-        key={editing?.id ?? "new"}
-        trip={trip}
-        editing={editing}
-        onDone={() => setEditingRideId(null)}
-      />
+      {/* Typing a ride in is the common case, so importing is offered beside it
+          rather than in front of it. */}
+      {!editing && (
+        <div class="add-modes">
+          <button class={importing ? "ghost" : "ghost on"} onClick={() => setImporting(false)}>Type it in</button>
+          <button class={importing ? "ghost on" : "ghost"} onClick={() => setImporting(true)}>Import from Uber</button>
+        </div>
+      )}
+
+      {importing && !editing
+        ? <UberImport trip={trip} onDone={() => setImporting(false)} />
+        : (
+          <RideForm
+            key={editing?.id ?? "new"}
+            trip={trip}
+            editing={editing}
+            onDone={() => setEditingRideId(null)}
+          />
+        )}
 
       {trip.rides.length === 0
         ? <p class="hint">No rides logged yet.</p>

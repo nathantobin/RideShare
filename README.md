@@ -17,6 +17,9 @@ weekend, not fifteen.
   Austin in March, and a new trip can copy the same crew across.
 - **From / To stops.** Leave the description blank and a ride names itself
   "Shem's Creek → Home".
+- **Uber receipts, not retyping.** Drop in the receipt PDFs, paste the emails or
+  upload Uber's `trips_data.csv`, and the rides log themselves — fares, stops
+  and dates included.
 - **Uneven groups are fine.** Each ride splits only among whoever was actually in
   the car, and the person who paid doesn't have to be one of them.
 - **Cent-exact.** Fares that don't divide evenly hand the leftover pennies to the
@@ -34,6 +37,37 @@ Your trips are saved in your own browser and never leave your device. That also
 means they're tied to that browser, so use **Export JSON** to back a trip up or
 move it to your laptop, and **Import JSON** to load it there. `sample-trip.json`
 in this repo is a small example you can import to see how it looks.
+
+### Importing from Uber
+
+Under **Rides**, "Import from Uber" reads your receipts and turns the ones you
+pick into rides. Three ways in, all of which stay on your machine:
+
+- **Upload the receipt PDFs.** Download a trip's receipt from the Uber app or
+  your email and pick it — as many at once as you like, one file per ride. This
+  is the one that works on the Monday after the trip.
+- **Paste the receipt emails.** Open each one, select all, paste. Several at
+  once is fine, and the HTML that comes with a copy/paste is fine too.
+- **Upload `trips_data.csv`.** Ask Uber for your data at
+  [their privacy centre](https://myprivacy.uber.com/privacy/exploreyourdata/download);
+  the export lands in your inbox a day or two later and covers everything.
+
+Files are read one by one, so a boarding pass caught up in the selection is
+named and set aside rather than sinking the rest, and a ride that arrives twice
+— its own PDF and a row in the CSV — is only logged once.
+
+Everything it finds goes in a list you tick through before anything is saved,
+with cancelled and free rides left out and the reason shown. They're all logged
+to one payer, because they're one Uber account's receipts, and split among the
+riders you choose; where a particular ride had a different set of people in the
+car, **edit** it afterwards. Uploading the same export twice is safe — rides
+already imported come back unticked, so you only add what's new.
+
+There's no "connect your Uber account" button, and it isn't for want of trying.
+Uber's trip-history API doesn't return fares — it gives times, distance and
+city, and stops there — so the one number a fare splitter needs isn't in it. The
+receipts are the only place that number exists, and reading them needs no
+account, no server and no API key.
 
 ## Running it locally
 
@@ -75,6 +109,7 @@ src/core/     the math and the data model, no DOM in sight
   split.ts      dividing a fare among riders
   settle.ts     balances, and who pays whom
   trips.ts      trips, people, rides, validation
+  uber.ts       reading receipts, and turning them into rides
   storage.ts    saving, loading, import and export
 src/ui/       Preact components
   App.tsx       the error banner, and which view the route is showing
@@ -83,8 +118,15 @@ src/ui/       Preact components
   Dashboard.tsx the list of trips
   TripPage.tsx  one trip: riders, rides, settle up
   RideForm.tsx  adding and editing a ride
+  UberImport.tsx  reviewing parsed receipts before they become rides
+  pdf.ts        pulling the text back out of a receipt PDF
 tests/        vitest suites for core/, the router, and the components
 ```
+
+Reading a PDF needs [pdf.js](https://mozilla.github.io/pdf.js/), which is
+bigger than everything else here put together, so it's split into its own chunk
+and fetched the first time someone picks a PDF — the app still starts on about
+16kB of JavaScript, and a browser that never opens a receipt never downloads it.
 
 TypeScript throughout, Preact for the views, Vite to build. `src/core` is plain
 TypeScript with no browser APIs, which is what makes it straightforward to test

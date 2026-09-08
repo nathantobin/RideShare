@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadData, parseImport, saveData, serialize, STORAGE_KEY, type StorageLike } from "../src/core/storage";
+import {
+  LEGACY_KEYS, loadData, parseImport, saveData, serialize, STORAGE_KEY, type StorageLike,
+} from "../src/core/storage";
 import { tripTotalCents } from "../src/core/settle";
 import { addPerson, addRide, createTrip, emptyData } from "../src/core/trips";
 import { ValidationError } from "../src/core/types";
@@ -36,7 +38,58 @@ describe("loadData", () => {
   });
 });
 
+describe("upgrading from version 3", () => {
+  /** A trip saved before rides could come from an Uber receipt. */
+  const v3 = JSON.stringify({
+    version: 3,
+    activeTripId: "t",
+    trips: [{
+      id: "t", name: "Charleston", createdAt: "2026-06-01T00:00:00.000Z",
+      people: [{ id: "a", name: "Alex" }],
+      rides: [{ id: "r1", description: "Solo", from: "", to: "", amountCents: 1200, paidBy: "a", riders: ["a"] }],
+    }],
+  });
+
+  it("finds trips still under the old key, so an upgrade doesn't look like data loss", () => {
+    storage.setItem(LEGACY_KEYS[0], v3);
+    const loaded = loadData(storage);
+    expect(loaded.version).toBe(4);
+    expect(loaded.trips[0].rides).toHaveLength(1);
+  });
+
+  it("prefers the current key once something has been saved to it", () => {
+    storage.setItem(LEGACY_KEYS[0], v3);
+    saveData(storage, emptyData());
+    expect(loadData(storage).trips).toEqual([]);
+  });
+
+  it("still imports a version 3 export file", () => {
+    expect(parseImport(v3).trips[0].name).toBe("Charleston");
+  });
+});
+
 describe("parseImport", () => {
+  it("round-trips the uber id that links a ride to its receipt", () => {
+    const data = emptyData();
+    const trip = createTrip(data, "Charleston");
+    const alex = addPerson(trip, "Alex");
+    addRide(trip, {
+      description: "", from: "Hotel", to: "Airport", amount: "24.53",
+      paidBy: alex.id, riders: [alex.id], uberId: "trip-a",
+    });
+    expect(parseImport(serialize(data)).trips[0].rides[0].uberId).toBe("trip-a");
+  });
+
+  it("drops an uber id that isn't a string rather than storing junk", () => {
+    const data = emptyData();
+    const trip = createTrip(data, "Charleston");
+    const alex = addPerson(trip, "Alex");
+    addRide(trip, { description: "x", from: "", to: "", amount: "12", paidBy: alex.id, riders: [alex.id] });
+    const raw = JSON.parse(serialize(data));
+    raw.trips[0].rides[0].uberId = 42;
+    expect(parseImport(JSON.stringify(raw)).trips[0].rides[0].uberId).toBeUndefined();
+  });
+
   it("re-imports its own export", () => {
     const data = emptyData();
     const trip = createTrip(data, "Charleston");
@@ -82,5 +135,6 @@ describe("parseImport", () => {
     expect(() => parseImport("not json")).toThrow(ValidationError);
     expect(() => parseImport(JSON.stringify({ hello: "world" }))).toThrow(ValidationError);
     expect(() => parseImport(JSON.stringify({ version: 2, trips: [] }))).toThrow(ValidationError);
+    expect(() => parseImport(JSON.stringify({ version: 99, trips: [] }))).toThrow(ValidationError);
   });
 });
