@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+*.local
+.DS_Store
+
+# Local editor / assistant config
+.claude/
+.vscode/
+
+# Personal trip data. Everyone's rides live in their own browser; the app's
+# Export button writes files like this one, so keep them out of the repo.
+taxis.json
+taxis.json.backup-v1
+rideshare-*.json

@@ -1,0 +1,46 @@
+{
+  "version": 3,
+  "activeTripId": "sample-trip",
+  "trips": [
+    {
+      "id": "sample-trip",
+      "name": "Sample weekend",
+      "createdAt": "2026-06-01T12:00:00.000Z",
+      "people": [
+        { "id": "p-alex", "name": "Alex" },
+        { "id": "p-blair", "name": "Blair" },
+        { "id": "p-casey", "name": "Casey" },
+        { "id": "p-drew", "name": "Drew" }
+      ],
+      "rides": [
+        {
+          "id": "r-1",
+          "description": "Airport → Hotel",
+          "from": "Airport",
+          "to": "Hotel",
+          "amountCents": 4850,
+          "paidBy": "p-alex",
+          "riders": ["p-alex", "p-blair", "p-casey", "p-drew"]
+        },
+        {
+          "id": "r-2",
+          "description": "Late one home",
+          "from": "King Street",
+          "to": "Hotel",
+          "amountCents": 2200,
+          "paidBy": "p-blair",
+          "riders": ["p-blair", "p-casey"]
+        },
+        {
+          "id": "r-3",
+          "description": "Hotel → Airport",
+          "from": "Hotel",
+          "to": "Airport",
+          "amountCents": 5133,
+          "paidBy": "p-casey",
+          "riders": ["p-alex", "p-casey", "p-drew"]
+        }
+      ]
+    }
+  ]
+}
