@@ -19,7 +19,7 @@ export interface Person {
   updatedAt: string;
 }
 
-/** One taxi ride, paid by one person and split evenly among its riders. */
+/** One ride, paid by one person and split evenly among its riders. */
 export interface Ride {
   id: string;
   /** What to call it. Derived from the stops when the user leaves it blank. */

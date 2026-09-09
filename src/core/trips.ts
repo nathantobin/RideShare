@@ -38,7 +38,7 @@ export function autoDescription(from: string, to: string): string {
   if (a && b) return `${a} → ${b}`;
   if (b) return `To ${b}`;
   if (a) return `From ${a}`;
-  return "Taxi";
+  return "Ride";
 }
 
 /** "Hotel → Airport" for display under the title, or "" if the ride has no stops. */

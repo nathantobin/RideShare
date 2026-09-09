@@ -101,7 +101,7 @@ function parseAppData(input: unknown): AppData {
       if (riders.length === 0 || ride.amountCents <= 0) return [];
       return [{
         id: ride.id,
-        description: typeof ride.description === "string" ? ride.description : "Taxi",
+        description: typeof ride.description === "string" ? ride.description : "Ride",
         from: typeof ride.from === "string" ? ride.from : "",
         to: typeof ride.to === "string" ? ride.to : "",
         amountCents: Math.round(ride.amountCents),

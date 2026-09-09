@@ -1,7 +1,7 @@
 {
   "name": "rideshare",
   "version": "1.0.0",
-  "description": "Split taxi fares on a group trip and see who owes whom",
+  "description": "Split ride fares on a group trip and see who owes whom",
   "type": "module",
   "private": true,
   "license": "MIT",

@@ -1,6 +1,6 @@
 # Ride Share
 
-Split taxi fares on a group trip and see who owes whom.
+Split ride fares on a group trip and see who owes whom.
 
 **[Open the app →](https://nathantobin.github.io/RideShare/)**
 

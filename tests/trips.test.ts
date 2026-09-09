@@ -17,7 +17,7 @@ describe("autoDescription", () => {
     expect(autoDescription("Hotel", "Airport")).toBe("Hotel → Airport");
     expect(autoDescription("", "Airport")).toBe("To Airport");
     expect(autoDescription("Hotel", "")).toBe("From Hotel");
-    expect(autoDescription("  ", "")).toBe("Taxi");
+    expect(autoDescription("  ", "")).toBe("Ride");
   });
 });
 
